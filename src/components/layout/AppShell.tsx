@@ -10,7 +10,7 @@ interface AppShellProps {
 
 export function AppShell({ activeView, onNavigate, children }: AppShellProps) {
   return (
-    <div className="blueprint-bg min-h-svh flex flex-col md:flex-row">
+    <div className="app-bg min-h-svh flex flex-col md:flex-row">
       <NavBar active={activeView} onNavigate={onNavigate} />
 
       <main className="flex-1 flex flex-col min-w-0 pb-20 md:pb-6">

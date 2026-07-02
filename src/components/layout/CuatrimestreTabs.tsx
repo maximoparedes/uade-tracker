@@ -16,14 +16,14 @@ export function CuatrimestreTabs() {
 
   return (
     <>
-      <div className="flex items-center gap-1 px-3 pt-3 pb-0 overflow-x-auto scrollbar-hide">
+      <div className="flex items-center gap-1.5 px-3 md:px-6 pt-4 pb-0 overflow-x-auto">
         {cuatrimestres.map(c => (
           <div
             key={c.id}
-            className={`group flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-t-lg border text-xs font-mono cursor-pointer transition-all ${
+            className={`group flex items-center gap-1.5 shrink-0 px-3.5 py-1.5 rounded-full text-xs font-display cursor-pointer transition-all ${
               c.id === activeCuatrimestreId
-                ? 'bg-navy-900 border-cyan-400/30 border-b-navy-900 text-cyan-400'
-                : 'bg-navy-950 border-navy-700 text-slate-400 hover:text-slate-200'
+                ? 'bg-white/10 text-white font-medium'
+                : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
             }`}
             onClick={() => setActiveCuatrimestre(c.id)}
           >
@@ -31,7 +31,7 @@ export function CuatrimestreTabs() {
             {cuatrimestres.length > 1 && (
               <button
                 onClick={e => { e.stopPropagation(); handleDelete(c.id) }}
-                className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity ml-1"
+                className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity"
               >
                 <Trash2 size={10} />
               </button>
@@ -40,7 +40,7 @@ export function CuatrimestreTabs() {
         ))}
         <button
           onClick={() => setShowForm(true)}
-          className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-t-lg border border-navy-700 text-slate-500 hover:text-cyan-400 hover:border-cyan-400/30 text-xs font-mono transition-colors"
+          className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-display text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-all"
         >
           <Plus size={12} />
           Nuevo

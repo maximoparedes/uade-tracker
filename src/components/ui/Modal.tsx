@@ -28,14 +28,14 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
-        className={`relative w-full ${widths[size]} bg-navy-900 border border-cyan-400/20 rounded-t-2xl sm:rounded-xl shadow-2xl fade-in max-h-[90vh] flex flex-col`}
+        className={`relative w-full ${widths[size]} bg-[#16161f] border border-white/8 rounded-t-2xl sm:rounded-2xl shadow-2xl fade-in max-h-[90vh] flex flex-col`}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-navy-700">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/6">
           <h2 className="font-display font-semibold text-white text-base">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-navy-700 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/8 transition-colors"
           >
             <X size={16} />
           </button>
