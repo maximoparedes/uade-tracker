@@ -36,8 +36,11 @@ export function Dashboard() {
       {/* CONFLICT ALERT — first thing visible */}
       <ConflictAlert />
 
-      {/* Countdown */}
-      <Countdown />
+      {/* Countdowns */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Countdown label="Próxima fecha" />
+        <Countdown label="Próximo parcial" tipos={['parcial_1', 'parcial_2']} />
+      </div>
 
       {/* Progress */}
       <div className="rounded-xl border border-navy-700 bg-navy-900/80 p-4">
