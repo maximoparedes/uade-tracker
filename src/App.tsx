@@ -7,6 +7,7 @@ import { Dashboard } from './views/Dashboard'
 import { Calendario } from './views/Calendario'
 import { TimelinePage } from './views/Timeline'
 import { Materias } from './views/Materias'
+import { Carrera } from './views/Carrera'
 
 export default function App() {
   const appData = useAppData()
@@ -19,6 +20,7 @@ export default function App() {
         {activeView === 'calendario' && <Calendario />}
         {activeView === 'timeline' && <TimelinePage />}
         {activeView === 'materias' && <Materias />}
+        {activeView === 'carrera' && <Carrera />}
       </AppShell>
     </AppContext.Provider>
   )

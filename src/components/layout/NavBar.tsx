@@ -1,12 +1,13 @@
-import { LayoutDashboard, Calendar, GitCommitHorizontal, BookOpen } from 'lucide-react'
+import { LayoutDashboard, Calendar, GitCommitHorizontal, BookOpen, Map } from 'lucide-react'
 
-export type ViewType = 'dashboard' | 'calendario' | 'timeline' | 'materias'
+export type ViewType = 'dashboard' | 'calendario' | 'timeline' | 'materias' | 'carrera'
 
 const ITEMS = [
-  { id: 'dashboard' as ViewType, label: 'Inicio', icon: LayoutDashboard },
+  { id: 'dashboard' as ViewType, label: 'Inicio',    icon: LayoutDashboard },
   { id: 'calendario' as ViewType, label: 'Calendario', icon: Calendar },
-  { id: 'timeline' as ViewType, label: 'Línea de tiempo', icon: GitCommitHorizontal },
-  { id: 'materias' as ViewType, label: 'Materias', icon: BookOpen },
+  { id: 'timeline' as ViewType, label: 'Timeline',    icon: GitCommitHorizontal },
+  { id: 'materias' as ViewType, label: 'Materias',   icon: BookOpen },
+  { id: 'carrera' as ViewType,  label: 'Carrera',    icon: Map },
 ]
 
 interface NavBarProps {
