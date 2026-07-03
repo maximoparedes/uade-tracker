@@ -103,5 +103,5 @@ export const SEED_DATA: AppStorage = {
   evaluaciones,
   materiaStates,
   activeCuatrimestreId: 'c2-2026',
-  version: 1,
+  version: 2,
 }

@@ -52,8 +52,9 @@ export function useCarreraData() {
   }, [])
 
   const setSubjectState = useCallback((id: string, estado: EstadoCarrera, nota?: number) => {
+    const clampedNota = nota !== undefined ? Math.min(10, Math.max(1, nota)) : undefined
     setStates(prev => {
-      const updated: CarreraSubjectState = { estado, nota: estado === 'aprobada' ? nota : undefined }
+      const updated: CarreraSubjectState = { estado, nota: estado === 'aprobada' ? clampedNota : undefined }
       const next = { ...prev, [id]: updated }
       persist(next)
       return next

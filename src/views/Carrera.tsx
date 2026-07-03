@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { CheckCircle2, Circle, BookOpen, Award, Lock } from 'lucide-react'
 import { CARRERA_SUBJECTS, AÑOS_LABEL } from '../data/carreraData'
 import { useCarreraData } from '../hooks/useCarreraData'
@@ -24,6 +24,11 @@ function SubjectCard({ subject, state, unlocked, missing, onSetState }: SubjectC
   const [notaInput, setNotaInput] = useState(state.nota !== undefined ? String(state.nota) : '')
   const cfg = ESTADO_CFG[state.estado]
 
+  // Bug 4 fix: sync nota input when state changes externally (e.g. via cuatrimestre sync)
+  useEffect(() => {
+    setNotaInput(state.nota !== undefined ? String(state.nota) : '')
+  }, [state.nota])
+
   function selectEstado(e: EstadoCarrera) {
     if (e === 'aprobada') {
       const n = parseFloat(notaInput)
@@ -37,7 +42,11 @@ function SubjectCard({ subject, state, unlocked, missing, onSetState }: SubjectC
   function handleNotaChange(val: string) {
     setNotaInput(val)
     const n = parseFloat(val)
-    if (!isNaN(n) && n >= 1 && n <= 10) onSetState('aprobada', n)
+    // Bug 5 fix: clamp to valid range before saving
+    if (!isNaN(n)) {
+      const clamped = Math.min(10, Math.max(1, n))
+      onSetState('aprobada', clamped)
+    }
   }
 
   return (

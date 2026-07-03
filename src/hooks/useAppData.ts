@@ -1,22 +1,50 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { AppStorage, AppContextType, Cuatrimestre, Materia, Evaluacion, MateriaState } from '../types'
 import { SEED_DATA } from '../data/seed'
+import { CARRERA_SUBJECTS } from '../data/carreraData'
 import { detectConflicts } from '../utils/conflicts'
 import { generateEvaluaciones } from '../utils/evaluaciones'
 import { todayStr } from '../utils/dates'
 import { syncBus } from '../utils/syncBus'
 
 const STORAGE_KEY = 'uade-tracker-v1'
-
 function nanoid(): string {
   return Math.random().toString(36).slice(2, 11)
+}
+
+// Build name → carreraSubjectId lookup from the catalog
+const NOMBRE_TO_CARRERA_ID: Record<string, string> = Object.fromEntries(
+  CARRERA_SUBJECTS.map(s => [s.nombre, s.id])
+)
+
+function migrateData(data: AppStorage): AppStorage {
+  let d = { ...data }
+
+  // v1 → v2: backfill carreraSubjectId on materias + remove orphan parcial_2 from virtuals
+  if ((d.version ?? 1) < 2) {
+    const migratedMaterias = d.materias.map(m => ({
+      ...m,
+      carreraSubjectId: m.carreraSubjectId ?? NOMBRE_TO_CARRERA_ID[m.nombre],
+    }))
+    const virtualIds = new Set(migratedMaterias.filter(m => m.tipo === 'virtual').map(m => m.id))
+    d = {
+      ...d,
+      materias: migratedMaterias,
+      evaluaciones: d.evaluaciones.filter(
+        e => !(e.tipo === 'parcial_2' && virtualIds.has(e.materiaId))
+      ),
+      version: 2,
+    }
+  }
+
+  return d
 }
 
 export function useAppData(): AppContextType {
   const [data, setData] = useState<AppStorage>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) return JSON.parse(saved) as AppStorage
+      if (saved) return migrateData(JSON.parse(saved) as AppStorage)
     } catch { /* ignore */ }
     return SEED_DATA
   })
@@ -36,9 +64,9 @@ export function useAppData(): AppContextType {
         const estadoMateria: MateriaState['estado'] =
           estado === 'aprobada' ? 'aprobada' :
           estado === 'cursando' ? 'cursando' : 'rindiendo'
-        const exists = d.materiaStates.some(s => s.materiaId === materia.id)
         const current = d.materiaStates.find(s => s.materiaId === materia.id)
-        if (current?.estado === estadoMateria) return d // already in sync
+        if (current?.estado === estadoMateria) return d
+        const exists = !!current
         return {
           ...d,
           materiaStates: exists
@@ -121,10 +149,40 @@ export function useAppData(): AppContextType {
   }
 
   function updateMateria(id: string, updates: Partial<Materia>) {
-    setData(d => ({
-      ...d,
-      materias: d.materias.map(m => m.id === id ? { ...m, ...updates } : m),
-    }))
+    setData(d => {
+      const materia = d.materias.find(m => m.id === id)
+      if (!materia) return d
+
+      let evaluaciones = d.evaluaciones
+
+      // Bug 3 fix: if tipo changes, sync parcial_2 existence accordingly
+      if (updates.tipo !== undefined && updates.tipo !== materia.tipo) {
+        if (updates.tipo === 'virtual') {
+          // switching to virtual → drop parcial_2
+          evaluaciones = evaluaciones.filter(
+            e => !(e.materiaId === id && e.tipo === 'parcial_2')
+          )
+        } else if (materia.tipo === 'virtual') {
+          // switching away from virtual → add parcial_2 if missing
+          const hasP2 = evaluaciones.some(e => e.materiaId === id && e.tipo === 'parcial_2')
+          if (!hasP2) {
+            evaluaciones = [...evaluaciones, {
+              id: `e-${nanoid()}`,
+              materiaId: id,
+              tipo: 'parcial_2' as const,
+              nombre: 'Parcial 2',
+              estado: 'pendiente_fecha' as const,
+            }]
+          }
+        }
+      }
+
+      return {
+        ...d,
+        materias: d.materias.map(m => m.id === id ? { ...m, ...updates } : m),
+        evaluaciones,
+      }
+    })
   }
 
   function deleteMateria(id: string) {
@@ -174,14 +232,11 @@ export function useAppData(): AppContextType {
       }
     })
     // Sync to carrera map
-    if (updates.estado === 'aprobada' || updates.estado === 'promocionada') {
-      const materia = data.materias.find(m => m.id === materiaId)
-      if (materia?.carreraSubjectId) {
+    const materia = data.materias.find(m => m.id === materiaId)
+    if (materia?.carreraSubjectId) {
+      if (updates.estado === 'aprobada' || updates.estado === 'promocionada') {
         syncBus.emit({ type: 'materia-to-carrera', carreraSubjectId: materia.carreraSubjectId, estado: 'aprobada' })
-      }
-    } else if (updates.estado === 'cursando' || updates.estado === 'rindiendo') {
-      const materia = data.materias.find(m => m.id === materiaId)
-      if (materia?.carreraSubjectId) {
+      } else if (updates.estado === 'cursando' || updates.estado === 'rindiendo') {
         syncBus.emit({ type: 'materia-to-carrera', carreraSubjectId: materia.carreraSubjectId, estado: 'cursando' })
       }
     }
