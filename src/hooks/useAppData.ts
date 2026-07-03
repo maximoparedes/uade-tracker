@@ -199,10 +199,31 @@ export function useAppData(): AppContextType {
   }
 
   function updateEvaluacion(id: string, updates: Partial<Evaluacion>) {
-    setData(d => ({
-      ...d,
-      evaluaciones: d.evaluaciones.map(e => e.id === id ? { ...e, ...updates } : e),
-    }))
+    setData(d => {
+      const ev = d.evaluaciones.find(e => e.id === id)
+      let evaluaciones = d.evaluaciones.map(e => e.id === id ? { ...e, ...updates } : e)
+
+      // Auto-create recuperatorio when a parcial is failed/absent
+      if (ev && (updates.estado === 'desaprobado' || updates.estado === 'ausente')) {
+        const tipoRec =
+          ev.tipo === 'parcial_1' ? 'recuperatorio_1' as const :
+          ev.tipo === 'parcial_2' ? 'recuperatorio_2' as const : null
+        if (tipoRec) {
+          const hasRec = evaluaciones.some(e => e.materiaId === ev.materiaId && e.tipo === tipoRec)
+          if (!hasRec) {
+            evaluaciones = [...evaluaciones, {
+              id: `e-${nanoid()}`,
+              materiaId: ev.materiaId,
+              tipo: tipoRec,
+              nombre: tipoRec === 'recuperatorio_1' ? 'Recuperatorio 1' : 'Recuperatorio 2',
+              estado: 'pendiente_fecha' as const,
+            }]
+          }
+        }
+      }
+
+      return { ...d, evaluaciones }
+    })
   }
 
   function deleteEvaluacion(id: string) {
@@ -217,8 +238,17 @@ export function useAppData(): AppContextType {
 
   function updateMateriaState(materiaId: string, updates: Partial<MateriaState>) {
     setData(d => {
-      const exists = d.materiaStates.some(s => s.materiaId === materiaId)
-      if (exists) {
+      const current = d.materiaStates.find(s => s.materiaId === materiaId)
+      if (current && !updates.estado && updates.notas !== undefined) {
+        // Only updating notes — no estado change, skip sync
+        return {
+          ...d,
+          materiaStates: d.materiaStates.map(s =>
+            s.materiaId === materiaId ? { ...s, ...updates } : s
+          ),
+        }
+      }
+      if (current) {
         return {
           ...d,
           materiaStates: d.materiaStates.map(s =>
@@ -231,14 +261,21 @@ export function useAppData(): AppContextType {
         materiaStates: [...d.materiaStates, { materiaId, estado: 'cursando', notas: '', ...updates }],
       }
     })
-    // Sync to carrera map
+
+    // Only sync to carrera if estado actually changed
+    if (!updates.estado) return
+    const current = data.materiaStates.find(s => s.materiaId === materiaId)
+    if (current?.estado === updates.estado) return
+
     const materia = data.materias.find(m => m.id === materiaId)
-    if (materia?.carreraSubjectId) {
-      if (updates.estado === 'aprobada' || updates.estado === 'promocionada') {
-        syncBus.emit({ type: 'materia-to-carrera', carreraSubjectId: materia.carreraSubjectId, estado: 'aprobada' })
-      } else if (updates.estado === 'cursando' || updates.estado === 'rindiendo') {
-        syncBus.emit({ type: 'materia-to-carrera', carreraSubjectId: materia.carreraSubjectId, estado: 'cursando' })
-      }
+    if (!materia?.carreraSubjectId) return
+
+    if (updates.estado === 'aprobada' || updates.estado === 'promocionada') {
+      syncBus.emit({ type: 'materia-to-carrera', carreraSubjectId: materia.carreraSubjectId, estado: 'aprobada' })
+    } else if (updates.estado === 'cursando' || updates.estado === 'rindiendo') {
+      syncBus.emit({ type: 'materia-to-carrera', carreraSubjectId: materia.carreraSubjectId, estado: 'cursando' })
+    } else {
+      syncBus.emit({ type: 'carrera-to-materia', carreraSubjectId: materia.carreraSubjectId, estado: 'pendiente' })
     }
   }
 

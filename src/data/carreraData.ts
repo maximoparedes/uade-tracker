@@ -68,6 +68,7 @@ export const CARRERA_SUBJECTS: CarreraSubject[] = [
   { id: 'c-135', codigo: '3.4.135', nombre: 'Tecnología e Innovación',                año: 5, correlativas: [] },
   { id: 'c-opt3',codigo: 'OPT',     nombre: 'Optativa (3)',                           año: 5, correlativas: [], esOptativa: true },
   { id: 'c-2056',codigo: '2.3.056', nombre: 'Derecho Informático',                    año: 5, correlativas: [] },
+  { id: 'c-ing', codigo: 'ENG',     nombre: 'Examen de Inglés',                       año: 3, correlativas: [] },
 ]
 
 export const AÑOS_LABEL: Record<1|2|3|4|5, string> = {

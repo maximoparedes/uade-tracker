@@ -2,6 +2,7 @@ import { useAppContext } from '../context/AppContext'
 import { ConflictAlert } from '../components/conflict/ConflictAlert'
 import { Countdown } from '../components/countdown/Countdown'
 import { ParcialCarousel } from '../components/materia/ParcialCarousel'
+import { HorarioHoy } from '../components/dashboard/HorarioHoy'
 import { COLORS } from '../utils/colors'
 import type { EstadoMateria } from '../types'
 
@@ -24,13 +25,11 @@ export function Dashboard() {
   }).length
 
   const progress = activeMaterias.length ? (aprobadas / activeMaterias.length) * 100 : 0
-
   const pendingDates = activeEvaluaciones.filter(e => e.estado === 'pendiente_fecha')
   const materiasPendingDate = new Set(pendingDates.map(e => e.materiaId))
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
-      {/* Title */}
       <div>
         <h1 className="font-display font-bold text-white text-2xl tracking-tight">
           {activeCuatrimestre?.nombre ?? 'Cuatrimestre'}
@@ -38,16 +37,17 @@ export function Dashboard() {
         <p className="text-sm text-slate-400 mt-0.5">Ingeniería en Informática · UADE</p>
       </div>
 
-      {/* Conflicts — always first */}
       <ConflictAlert />
 
-      {/* Countdowns */}
+      {/* Horario hoy + countdowns */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Countdown label="Próxima fecha" />
-        <Countdown label="Próximo parcial" tipos={['parcial_1', 'parcial_2']} />
+        <HorarioHoy />
+        <div className="space-y-3">
+          <Countdown label="Próxima fecha" />
+          <Countdown label="Próximo parcial" tipos={['parcial_1', 'parcial_2']} />
+        </div>
       </div>
 
-      {/* Parcial carousel */}
       <ParcialCarousel />
 
       {/* Progress */}
@@ -81,7 +81,6 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Pending dates */}
       {materiasPendingDate.size > 0 && (
         <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 px-4 py-3">
           <p className="font-display text-sm text-amber-400 font-medium mb-2">
@@ -99,7 +98,6 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Finals list */}
       <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
         <p className="font-display text-xs text-slate-400 mb-3">Finales y entregas</p>
         <div className="space-y-2">
@@ -113,7 +111,7 @@ export function Dashboard() {
               return (
                 <div key={ev.id} className="flex items-center gap-3">
                   <div className={`w-1 h-4 rounded-full ${c.dot} shrink-0`} />
-                  <span className={`font-display text-xs text-slate-400 w-20 shrink-0`}>{ev.fecha}</span>
+                  <span className="font-display text-xs text-slate-400 w-20 shrink-0">{ev.fecha}</span>
                   <span className="font-display text-sm text-slate-200 flex-1 truncate">{mat.nombre}</span>
                   <span className={`text-xs font-display ${c.text}`}>{ev.nombre}</span>
                 </div>

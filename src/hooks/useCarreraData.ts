@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { CARRERA_SUBJECTS } from '../data/carreraData'
 import { syncBus } from '../utils/syncBus'
 
@@ -84,34 +84,40 @@ export function useCarreraData() {
       .map(cId => SUBJECT_MAP.get(cId)?.nombre ?? cId)
   }, [states])
 
-  // Promedio: average of all subjects with nota
-  const notasValues = Object.values(states)
-    .filter(s => s.estado === 'aprobada' && s.nota !== undefined)
-    .map(s => s.nota!)
-  const promedio = notasValues.length
-    ? parseFloat((notasValues.reduce((sum, n) => sum + n, 0) / notasValues.length).toFixed(2))
-    : null
+  const stats = useMemo(() => {
+    const stateValues = Object.values(states)
+    const notasValues = stateValues
+      .filter(s => s.estado === 'aprobada' && s.nota !== undefined)
+      .map(s => s.nota!)
+    const promedio = notasValues.length
+      ? parseFloat((notasValues.reduce((sum, n) => sum + n, 0) / notasValues.length).toFixed(2))
+      : null
+    return {
+      total: CARRERA_SUBJECTS.length,
+      aprobadas: stateValues.filter(s => s.estado === 'aprobada').length,
+      cursando: stateValues.filter(s => s.estado === 'cursando').length,
+      promedio,
+      byAño: ([1, 2, 3, 4, 5] as const).map(año => {
+        const subs = CARRERA_SUBJECTS.filter(s => s.año === año)
+        return {
+          año,
+          total: subs.length,
+          aprobadas: subs.filter(s => (states[s.id]?.estado ?? 'pendiente') === 'aprobada').length,
+          cursando: subs.filter(s => (states[s.id]?.estado ?? 'pendiente') === 'cursando').length,
+        }
+      }),
+    }
+  }, [states])
 
-  const stats = {
-    total: CARRERA_SUBJECTS.length,
-    aprobadas: Object.values(states).filter(s => s.estado === 'aprobada').length,
-    cursando: Object.values(states).filter(s => s.estado === 'cursando').length,
-    promedio,
-    byAño: ([1, 2, 3, 4, 5] as const).map(año => {
-      const subs = CARRERA_SUBJECTS.filter(s => s.año === año)
-      return {
-        año,
-        total: subs.length,
-        aprobadas: subs.filter(s => (states[s.id]?.estado ?? 'pendiente') === 'aprobada').length,
-        cursando: subs.filter(s => (states[s.id]?.estado ?? 'pendiente') === 'cursando').length,
-      }
-    }),
-  }
-
-  const analistaSubjects = CARRERA_SUBJECTS.filter(s => s.año <= 3)
-  const analistaAprobadas = analistaSubjects.filter(s => (states[s.id]?.estado ?? 'pendiente') === 'aprobada').length
-  const analistaTotal = analistaSubjects.length
-  const analistaCompleto = analistaAprobadas === analistaTotal
+  const { analistaAprobadas, analistaTotal, analistaCompleto } = useMemo(() => {
+    const analistaSubjects = CARRERA_SUBJECTS.filter(s => s.año <= 3)
+    const aprobadas = analistaSubjects.filter(s => (states[s.id]?.estado ?? 'pendiente') === 'aprobada').length
+    return {
+      analistaAprobadas: aprobadas,
+      analistaTotal: analistaSubjects.length,
+      analistaCompleto: aprobadas === analistaSubjects.length,
+    }
+  }, [states])
 
   return {
     states, getState, setSubjectState, isUnlocked, getMissingCorrelativas,
