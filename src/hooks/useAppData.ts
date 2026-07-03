@@ -110,7 +110,7 @@ export function useAppData(): AppContextType {
 
   function addMateria(m: Omit<Materia, 'id'>): string {
     const id = nanoid()
-    const evs = generateEvaluaciones(id, m.regimen)
+    const evs = generateEvaluaciones(id, m.regimen, m.tipo)
     setData(d => ({
       ...d,
       materias: [...d.materias, { ...m, id }],

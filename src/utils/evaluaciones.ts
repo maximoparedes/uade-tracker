@@ -1,4 +1,4 @@
-import type { Evaluacion, RegimenMateria, TipoEvaluacion } from '../types'
+import type { Evaluacion, RegimenMateria, TipoEvaluacion, TipoMateria } from '../types'
 
 function makeId(): string {
   return Math.random().toString(36).slice(2, 9)
@@ -23,8 +23,12 @@ const TEMPLATES: Record<RegimenMateria, EvalTemplate[]> = {
   ],
 }
 
-export function generateEvaluaciones(materiaId: string, regimen: RegimenMateria): Evaluacion[] {
-  return TEMPLATES[regimen].map(t => ({
+export function generateEvaluaciones(materiaId: string, regimen: RegimenMateria, tipo?: TipoMateria): Evaluacion[] {
+  const templates = tipo === 'virtual'
+    ? TEMPLATES[regimen].filter(t => t.tipo !== 'parcial_2')
+    : TEMPLATES[regimen]
+
+  return templates.map(t => ({
     id: `e-${makeId()}`,
     materiaId,
     tipo: t.tipo,

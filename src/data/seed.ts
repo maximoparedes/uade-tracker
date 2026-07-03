@@ -57,14 +57,12 @@ const materias: Materia[] = [
 ]
 
 const evaluaciones: Evaluacion[] = [
-  // Programación III
+  // Programación III (virtual — solo 1 parcial)
   { id: 'e-m1-p1', materiaId: 'm1', tipo: 'parcial_1', nombre: 'Parcial 1', estado: 'pendiente_fecha' },
-  { id: 'e-m1-p2', materiaId: 'm1', tipo: 'parcial_2', nombre: 'Parcial 2', estado: 'pendiente_fecha' },
   { id: 'e-m1-f', materiaId: 'm1', tipo: 'final', nombre: 'Examen Final', fecha: '2026-12-07', estado: 'programado' },
 
-  // Paradigma OO
+  // Paradigma OO (virtual — solo 1 parcial)
   { id: 'e-m2-p1', materiaId: 'm2', tipo: 'parcial_1', nombre: 'Parcial 1', estado: 'pendiente_fecha' },
-  { id: 'e-m2-p2', materiaId: 'm2', tipo: 'parcial_2', nombre: 'Parcial 2', estado: 'pendiente_fecha' },
   { id: 'e-m2-f', materiaId: 'm2', tipo: 'final', nombre: 'Examen Final', fecha: '2026-12-09', estado: 'programado' },
 
   // Dirección de Proyectos
