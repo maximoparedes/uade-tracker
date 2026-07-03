@@ -4,6 +4,7 @@ import { SEED_DATA } from '../data/seed'
 import { detectConflicts } from '../utils/conflicts'
 import { generateEvaluaciones } from '../utils/evaluaciones'
 import { todayStr } from '../utils/dates'
+import { syncBus } from '../utils/syncBus'
 
 const STORAGE_KEY = 'uade-tracker-v1'
 
@@ -23,6 +24,30 @@ export function useAppData(): AppContextType {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   }, [data])
+
+  // Listen for carrera → cuatrimestre sync events
+  useEffect(() => {
+    return syncBus.on(event => {
+      if (event.type !== 'carrera-to-materia') return
+      const { carreraSubjectId, estado } = event
+      setData(d => {
+        const materia = d.materias.find(m => m.carreraSubjectId === carreraSubjectId)
+        if (!materia) return d
+        const estadoMateria: MateriaState['estado'] =
+          estado === 'aprobada' ? 'aprobada' :
+          estado === 'cursando' ? 'cursando' : 'rindiendo'
+        const exists = d.materiaStates.some(s => s.materiaId === materia.id)
+        const current = d.materiaStates.find(s => s.materiaId === materia.id)
+        if (current?.estado === estadoMateria) return d // already in sync
+        return {
+          ...d,
+          materiaStates: exists
+            ? d.materiaStates.map(s => s.materiaId === materia.id ? { ...s, estado: estadoMateria } : s)
+            : [...d.materiaStates, { materiaId: materia.id, estado: estadoMateria, notas: '' }],
+        }
+      })
+    })
+  }, [])
 
   const activeCuatrimestre = data.cuatrimestres.find(c => c.id === data.activeCuatrimestreId)
 
@@ -148,6 +173,18 @@ export function useAppData(): AppContextType {
         materiaStates: [...d.materiaStates, { materiaId, estado: 'cursando', notas: '', ...updates }],
       }
     })
+    // Sync to carrera map
+    if (updates.estado === 'aprobada' || updates.estado === 'promocionada') {
+      const materia = data.materias.find(m => m.id === materiaId)
+      if (materia?.carreraSubjectId) {
+        syncBus.emit({ type: 'materia-to-carrera', carreraSubjectId: materia.carreraSubjectId, estado: 'aprobada' })
+      }
+    } else if (updates.estado === 'cursando' || updates.estado === 'rindiendo') {
+      const materia = data.materias.find(m => m.id === materiaId)
+      if (materia?.carreraSubjectId) {
+        syncBus.emit({ type: 'materia-to-carrera', carreraSubjectId: materia.carreraSubjectId, estado: 'cursando' })
+      }
+    }
   }
 
   return {

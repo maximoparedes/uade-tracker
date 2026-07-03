@@ -14,31 +14,37 @@ const materias: Materia[] = [
     id: 'm1', cuatrimestreId: 'c2-2026', nombre: 'Programación III',
     tipo: 'virtual', regimen: 'examen_final', curso: '587214', aula: 'Online',
     color: 'cyan', horarios: [{ dia: 'lun', inicio: '18:30', fin: '22:30' }], orden: 1,
+    carreraSubjectId: 'c-077',
   },
   {
     id: 'm2', cuatrimestreId: 'c2-2026', nombre: 'Paradigma Orientado a Objetos',
     tipo: 'virtual', regimen: 'examen_final', curso: '587404', aula: 'Online',
     color: 'sky', horarios: [{ dia: 'mie', inicio: '14:00', fin: '18:00' }], orden: 2,
+    carreraSubjectId: 'c-208',
   },
   {
     id: 'm3', cuatrimestreId: 'c2-2026', nombre: 'Dirección de Proyectos Informáticos',
     tipo: 'presencial', regimen: 'trabajo_final', curso: '578845', aula: 'Aula 942, Monserrat',
     color: 'blue', horarios: [{ dia: 'lun', inicio: '07:45', fin: '11:45' }], orden: 3,
+    carreraSubjectId: 'c-089',
   },
   {
     id: 'm4', cuatrimestreId: 'c2-2026', nombre: 'Tecnología y Medio Ambiente',
     tipo: 'presencial', regimen: 'examen_final', curso: '580412', aula: 'Aula 706, Monserrat',
     color: 'violet', horarios: [{ dia: 'mie', inicio: '07:45', fin: '11:45' }], orden: 4,
+    carreraSubjectId: 'c-219',
   },
   {
     id: 'm5', cuatrimestreId: 'c2-2026', nombre: 'Cálculo II',
     tipo: 'presencial', regimen: 'examen_final', curso: '577552', aula: 'Aula SUM, Belgrano',
     color: 'purple', horarios: [{ dia: 'mie', inicio: '18:30', fin: '22:00' }], orden: 5,
+    carreraSubjectId: 'c-054',
   },
   {
     id: 'm6', cuatrimestreId: 'c2-2026', nombre: 'Derecho Informático',
     tipo: 'presencial', regimen: 'promocion', curso: '580879', aula: 'Aula 643, Monserrat',
     color: 'green', horarios: [{ dia: 'jue', inicio: '08:15', fin: '12:15' }], orden: 6,
+    carreraSubjectId: 'c-2056',
   },
   {
     id: 'm7', cuatrimestreId: 'c2-2026', nombre: 'Ingeniería de Software',
@@ -46,6 +52,7 @@ const materias: Materia[] = [
     color: 'amber', horarios: [],
     periodoIntensivo: { desde: '2026-10-26', hasta: '2026-10-31', inicio: '07:00', fin: '17:30' },
     orden: 7,
+    carreraSubjectId: 'c-214',
   },
 ]
 

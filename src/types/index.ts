@@ -40,6 +40,7 @@ export interface Materia {
   horarios: Horario[]
   periodoIntensivo?: PeriodoIntensivo
   orden: number
+  carreraSubjectId?: string
 }
 
 export interface Evaluacion {
