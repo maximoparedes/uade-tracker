@@ -3,6 +3,7 @@ import { CheckCircle2, Circle, BookOpen, Award, Lock, Search, X } from 'lucide-r
 import { CARRERA_SUBJECTS, AÑOS_LABEL } from '../data/carreraData'
 import { useCarreraData } from '../hooks/useCarreraData'
 import type { EstadoCarrera, CarreraSubjectState } from '../hooks/useCarreraData'
+import { useAuthContext } from '../context/AuthContext'
 import type { CarreraSubject } from '../data/carreraData'
 
 const ESTADO_CFG: Record<EstadoCarrera, { label: string; dot: string; text: string; ring: string; btn: string }> = {
@@ -136,10 +137,11 @@ function RingProgress({ value, total, size = 64 }: { value: number; total: numbe
 }
 
 export function Carrera() {
+  const { user } = useAuthContext()
   const {
     states, getState, setSubjectState, isUnlocked, getMissingCorrelativas,
     stats, analistaCompleto, analistaAprobadas, analistaTotal,
-  } = useCarreraData()
+  } = useCarreraData(user!.uid)
   const [focusAño, setFocusAño] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [newlyUnlocked, setNewlyUnlocked] = useState<Set<string>>(new Set())

@@ -1,26 +1,23 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 import type { AppStorage, AppContextType, Cuatrimestre, Materia, Evaluacion, MateriaState } from '../types'
-import { SEED_DATA } from '../data/seed'
+import { db } from '../firebase'
 import { CARRERA_SUBJECTS } from '../data/carreraData'
 import { detectConflicts } from '../utils/conflicts'
 import { generateEvaluaciones } from '../utils/evaluaciones'
 import { todayStr } from '../utils/dates'
 import { syncBus } from '../utils/syncBus'
 
-const STORAGE_KEY = 'uade-tracker-v1'
 function nanoid(): string {
   return Math.random().toString(36).slice(2, 11)
 }
 
-// Build name → carreraSubjectId lookup from the catalog
 const NOMBRE_TO_CARRERA_ID: Record<string, string> = Object.fromEntries(
   CARRERA_SUBJECTS.map(s => [s.nombre, s.id])
 )
 
 function migrateData(data: AppStorage): AppStorage {
   let d = { ...data }
-
-  // v1 → v2: backfill carreraSubjectId on materias + remove orphan parcial_2 from virtuals
   if ((d.version ?? 1) < 2) {
     const migratedMaterias = d.materias.map(m => ({
       ...m,
@@ -36,21 +33,80 @@ function migrateData(data: AppStorage): AppStorage {
       version: 2,
     }
   }
-
   return d
 }
 
-export function useAppData(): AppContextType {
-  const [data, setData] = useState<AppStorage>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) return migrateData(JSON.parse(saved) as AppStorage)
-    } catch { /* ignore */ }
-    return SEED_DATA
-  })
+function emptyStorage(cuatrimestre: Cuatrimestre): AppStorage {
+  return {
+    cuatrimestres: [cuatrimestre],
+    materias: [],
+    evaluaciones: [],
+    materiaStates: [],
+    activeCuatrimestreId: cuatrimestre.id,
+    version: 2,
+  }
+}
 
+export type AppDataExtended = AppContextType & {
+  dataLoading: boolean
+  needsOnboarding: boolean
+  initializeUser: (nombre: string, cuatrimestre: Cuatrimestre) => Promise<void>
+}
+
+export function useAppData(uid: string): AppDataExtended {
+  const [data, setData] = useState<AppStorage | null>(null)
+  const [dataLoading, setDataLoading] = useState(true)
+  const [needsOnboarding, setNeedsOnboarding] = useState(false)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const isInitialLoad = useRef(true)
+
+  const appRef = doc(db, 'users', uid, 'storage', 'appData')
+  const profileRef = doc(db, 'users', uid)
+
+  // Load from Firestore on mount
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    let cancelled = false
+    async function load() {
+      try {
+        const [profileSnap, appSnap] = await Promise.all([
+          getDoc(profileRef),
+          getDoc(appRef),
+        ])
+        if (cancelled) return
+
+        if (!profileSnap.exists() || !profileSnap.data()?.onboardingCompleto) {
+          setNeedsOnboarding(true)
+          setDataLoading(false)
+          return
+        }
+
+        if (appSnap.exists()) {
+          setData(migrateData(appSnap.data() as AppStorage))
+        } else {
+          // Profile exists but no app data — shouldn't happen, but handle gracefully
+          setNeedsOnboarding(true)
+        }
+      } catch (err) {
+        console.error('Error loading data:', err)
+      } finally {
+        if (!cancelled) setDataLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid])
+
+  // Save to Firestore on data change (debounced 1s)
+  useEffect(() => {
+    if (!data || dataLoading) return
+    if (isInitialLoad.current) { isInitialLoad.current = false; return }
+    clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      setDoc(appRef, data).catch(console.error)
+    }, 1000)
+    return () => clearTimeout(saveTimerRef.current)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
   // Listen for carrera → cuatrimestre sync events
@@ -59,6 +115,7 @@ export function useAppData(): AppContextType {
       if (event.type !== 'carrera-to-materia') return
       const { carreraSubjectId, estado } = event
       setData(d => {
+        if (!d) return d
         const materia = d.materias.find(m => m.carreraSubjectId === carreraSubjectId)
         if (!materia) return d
         const estadoMateria: MateriaState['estado'] =
@@ -66,10 +123,9 @@ export function useAppData(): AppContextType {
           estado === 'cursando' ? 'cursando' : 'rindiendo'
         const current = d.materiaStates.find(s => s.materiaId === materia.id)
         if (current?.estado === estadoMateria) return d
-        const exists = !!current
         return {
           ...d,
-          materiaStates: exists
+          materiaStates: current
             ? d.materiaStates.map(s => s.materiaId === materia.id ? { ...s, estado: estadoMateria } : s)
             : [...d.materiaStates, { materiaId: materia.id, estado: estadoMateria, notas: '' }],
         }
@@ -77,18 +133,41 @@ export function useAppData(): AppContextType {
     })
   }, [])
 
-  const activeCuatrimestre = data.cuatrimestres.find(c => c.id === data.activeCuatrimestreId)
+  async function initializeUser(nombre: string, cuatrimestre: Cuatrimestre) {
+    const initialData = emptyStorage(cuatrimestre)
+    await Promise.all([
+      setDoc(profileRef, {
+        nombre,
+        carrera: 'informatica',
+        onboardingCompleto: true,
+        email: '',
+        createdAt: new Date().toISOString(),
+      }),
+      setDoc(appRef, initialData),
+    ])
+    setData(initialData)
+    isInitialLoad.current = false
+    setNeedsOnboarding(false)
+  }
+
+  // Derived state — safe defaults when data is null (during loading)
+  const safeData: AppStorage = data ?? {
+    cuatrimestres: [], materias: [], evaluaciones: [],
+    materiaStates: [], activeCuatrimestreId: '', version: 2,
+  }
+
+  const activeCuatrimestre = safeData.cuatrimestres.find(c => c.id === safeData.activeCuatrimestreId)
 
   const activeMaterias = useMemo(
-    () => data.materias
-      .filter(m => m.cuatrimestreId === data.activeCuatrimestreId)
+    () => safeData.materias
+      .filter(m => m.cuatrimestreId === safeData.activeCuatrimestreId)
       .sort((a, b) => a.orden - b.orden),
-    [data.materias, data.activeCuatrimestreId]
+    [safeData.materias, safeData.activeCuatrimestreId]
   )
 
   const activeEvaluaciones = useMemo(
-    () => data.evaluaciones.filter(e => activeMaterias.some(m => m.id === e.materiaId)),
-    [data.evaluaciones, activeMaterias]
+    () => safeData.evaluaciones.filter(e => activeMaterias.some(m => m.id === e.materiaId)),
+    [safeData.evaluaciones, activeMaterias]
   )
 
   const conflicts = useMemo(
@@ -108,13 +187,17 @@ export function useAppData(): AppContextType {
     return { materia: mat, evaluacion: ev }
   }, [activeEvaluaciones, activeMaterias])
 
+  function update(fn: (d: AppStorage) => AppStorage) {
+    setData(d => d ? fn(d) : d)
+  }
+
   function setActiveCuatrimestre(id: string) {
-    setData(d => ({ ...d, activeCuatrimestreId: id }))
+    update(d => ({ ...d, activeCuatrimestreId: id }))
   }
 
   function addCuatrimestre(c: Omit<Cuatrimestre, 'id'>) {
     const id = nanoid()
-    setData(d => ({
+    update(d => ({
       ...d,
       cuatrimestres: [...d.cuatrimestres, { ...c, id }],
       activeCuatrimestreId: id,
@@ -122,7 +205,7 @@ export function useAppData(): AppContextType {
   }
 
   function deleteCuatrimestre(id: string) {
-    setData(d => {
+    update(d => {
       const remaining = d.cuatrimestres.filter(c => c.id !== id)
       const mIds = d.materias.filter(m => m.cuatrimestreId === id).map(m => m.id)
       return {
@@ -139,7 +222,7 @@ export function useAppData(): AppContextType {
   function addMateria(m: Omit<Materia, 'id'>): string {
     const id = nanoid()
     const evs = generateEvaluaciones(id, m.regimen, m.tipo)
-    setData(d => ({
+    update(d => ({
       ...d,
       materias: [...d.materias, { ...m, id }],
       evaluaciones: [...d.evaluaciones, ...evs],
@@ -149,34 +232,23 @@ export function useAppData(): AppContextType {
   }
 
   function updateMateria(id: string, updates: Partial<Materia>) {
-    setData(d => {
+    update(d => {
       const materia = d.materias.find(m => m.id === id)
       if (!materia) return d
-
       let evaluaciones = d.evaluaciones
-
-      // Bug 3 fix: if tipo changes, sync parcial_2 existence accordingly
       if (updates.tipo !== undefined && updates.tipo !== materia.tipo) {
         if (updates.tipo === 'virtual') {
-          // switching to virtual → drop parcial_2
-          evaluaciones = evaluaciones.filter(
-            e => !(e.materiaId === id && e.tipo === 'parcial_2')
-          )
+          evaluaciones = evaluaciones.filter(e => !(e.materiaId === id && e.tipo === 'parcial_2'))
         } else if (materia.tipo === 'virtual') {
-          // switching away from virtual → add parcial_2 if missing
           const hasP2 = evaluaciones.some(e => e.materiaId === id && e.tipo === 'parcial_2')
           if (!hasP2) {
             evaluaciones = [...evaluaciones, {
-              id: `e-${nanoid()}`,
-              materiaId: id,
-              tipo: 'parcial_2' as const,
-              nombre: 'Parcial 2',
-              estado: 'pendiente_fecha' as const,
+              id: `e-${nanoid()}`, materiaId: id, tipo: 'parcial_2' as const,
+              nombre: 'Parcial 2', estado: 'pendiente_fecha' as const,
             }]
           }
         }
       }
-
       return {
         ...d,
         materias: d.materias.map(m => m.id === id ? { ...m, ...updates } : m),
@@ -186,7 +258,7 @@ export function useAppData(): AppContextType {
   }
 
   function deleteMateria(id: string) {
-    setData(d => ({
+    update(d => ({
       ...d,
       materias: d.materias.filter(m => m.id !== id),
       evaluaciones: d.evaluaciones.filter(e => e.materiaId !== id),
@@ -195,15 +267,13 @@ export function useAppData(): AppContextType {
   }
 
   function addEvaluacion(e: Omit<Evaluacion, 'id'>) {
-    setData(d => ({ ...d, evaluaciones: [...d.evaluaciones, { ...e, id: nanoid() }] }))
+    update(d => ({ ...d, evaluaciones: [...d.evaluaciones, { ...e, id: nanoid() }] }))
   }
 
   function updateEvaluacion(id: string, updates: Partial<Evaluacion>) {
-    setData(d => {
+    update(d => {
       const ev = d.evaluaciones.find(e => e.id === id)
       let evaluaciones = d.evaluaciones.map(e => e.id === id ? { ...e, ...updates } : e)
-
-      // Auto-create recuperatorio when a parcial is failed/absent
       if (ev && (updates.estado === 'desaprobado' || updates.estado === 'ausente')) {
         const tipoRec =
           ev.tipo === 'parcial_1' ? 'recuperatorio_1' as const :
@@ -212,42 +282,30 @@ export function useAppData(): AppContextType {
           const hasRec = evaluaciones.some(e => e.materiaId === ev.materiaId && e.tipo === tipoRec)
           if (!hasRec) {
             evaluaciones = [...evaluaciones, {
-              id: `e-${nanoid()}`,
-              materiaId: ev.materiaId,
-              tipo: tipoRec,
+              id: `e-${nanoid()}`, materiaId: ev.materiaId, tipo: tipoRec,
               nombre: tipoRec === 'recuperatorio_1' ? 'Recuperatorio 1' : 'Recuperatorio 2',
               estado: 'pendiente_fecha' as const,
             }]
           }
         }
       }
-
       return { ...d, evaluaciones }
     })
   }
 
   function deleteEvaluacion(id: string) {
-    setData(d => ({ ...d, evaluaciones: d.evaluaciones.filter(e => e.id !== id) }))
+    update(d => ({ ...d, evaluaciones: d.evaluaciones.filter(e => e.id !== id) }))
   }
 
   function getMateriaState(materiaId: string): MateriaState {
-    return data.materiaStates.find(s => s.materiaId === materiaId) ?? {
+    return safeData.materiaStates.find(s => s.materiaId === materiaId) ?? {
       materiaId, estado: 'cursando', notas: '',
     }
   }
 
   function updateMateriaState(materiaId: string, updates: Partial<MateriaState>) {
-    setData(d => {
+    update(d => {
       const current = d.materiaStates.find(s => s.materiaId === materiaId)
-      if (current && !updates.estado && updates.notas !== undefined) {
-        // Only updating notes — no estado change, skip sync
-        return {
-          ...d,
-          materiaStates: d.materiaStates.map(s =>
-            s.materiaId === materiaId ? { ...s, ...updates } : s
-          ),
-        }
-      }
       if (current) {
         return {
           ...d,
@@ -262,12 +320,10 @@ export function useAppData(): AppContextType {
       }
     })
 
-    // Only sync to carrera if estado actually changed
     if (!updates.estado) return
-    const current = data.materiaStates.find(s => s.materiaId === materiaId)
+    const current = safeData.materiaStates.find(s => s.materiaId === materiaId)
     if (current?.estado === updates.estado) return
-
-    const materia = data.materias.find(m => m.id === materiaId)
+    const materia = safeData.materias.find(m => m.id === materiaId)
     if (!materia?.carreraSubjectId) return
 
     if (updates.estado === 'aprobada' || updates.estado === 'promocionada') {
@@ -280,11 +336,11 @@ export function useAppData(): AppContextType {
   }
 
   return {
-    cuatrimestres: data.cuatrimestres,
-    materias: data.materias,
-    evaluaciones: data.evaluaciones,
-    materiaStates: data.materiaStates,
-    activeCuatrimestreId: data.activeCuatrimestreId,
+    cuatrimestres: safeData.cuatrimestres,
+    materias: safeData.materias,
+    evaluaciones: safeData.evaluaciones,
+    materiaStates: safeData.materiaStates,
+    activeCuatrimestreId: safeData.activeCuatrimestreId,
     activeCuatrimestre,
     activeMaterias,
     activeEvaluaciones,
@@ -301,5 +357,8 @@ export function useAppData(): AppContextType {
     deleteEvaluacion,
     getMateriaState,
     updateMateriaState,
+    dataLoading,
+    needsOnboarding,
+    initializeUser,
   }
 }

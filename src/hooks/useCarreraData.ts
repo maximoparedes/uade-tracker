@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 import { CARRERA_SUBJECTS } from '../data/carreraData'
 import { syncBus } from '../utils/syncBus'
 
@@ -11,30 +13,49 @@ export interface CarreraSubjectState {
 
 type CarreraStates = Record<string, CarreraSubjectState>
 
-const STORAGE_KEY = 'uade-carrera-v1'
-
-function load(): CarreraStates {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as CarreraStates
-  } catch {}
-  const cursandoIds = new Set(['c-077', 'c-208', 'c-089', 'c-219', 'c-054', 'c-2056', 'c-214'])
-  const initial: CarreraStates = {}
-  for (const s of CARRERA_SUBJECTS) {
-    initial[s.id] = { estado: cursandoIds.has(s.id) ? 'cursando' : 'pendiente' }
-  }
-  return initial
-}
-
-function persist(states: CarreraStates) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(states)) } catch {}
-}
-
-// Subject index for O(1) lookup
 const SUBJECT_MAP = new Map(CARRERA_SUBJECTS.map(s => [s.id, s]))
 
-export function useCarreraData() {
-  const [states, setStates] = useState<CarreraStates>(load)
+export function useCarreraData(uid: string) {
+  const [states, setStates] = useState<CarreraStates>({})
+  const [loaded, setLoaded] = useState(false)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const isInitialLoad = useRef(true)
+
+  const carreraRef = doc(db, 'users', uid, 'storage', 'carreraData')
+
+  // Load from Firestore on mount
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const snap = await getDoc(carreraRef)
+        if (cancelled) return
+        if (snap.exists()) {
+          setStates(snap.data()?.states ?? {})
+        }
+        // If no doc, start empty — defaults to pendiente for all
+      } catch (err) {
+        console.error('Error loading carrera data:', err)
+      } finally {
+        if (!cancelled) setLoaded(true)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid])
+
+  // Save to Firestore on change (debounced 1s)
+  useEffect(() => {
+    if (!loaded) return
+    if (isInitialLoad.current) { isInitialLoad.current = false; return }
+    clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      setDoc(carreraRef, { states }).catch(console.error)
+    }, 1000)
+    return () => clearTimeout(saveTimerRef.current)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [states, loaded])
 
   // Listen for cuatrimestre → carrera sync events
   useEffect(() => {
@@ -43,10 +64,8 @@ export function useCarreraData() {
       const { carreraSubjectId, estado } = event
       setStates(prev => {
         const current = prev[carreraSubjectId]
-        if (current?.estado === estado) return prev // already in sync
-        const next = { ...prev, [carreraSubjectId]: { ...current, estado } }
-        persist(next)
-        return next
+        if (current?.estado === estado) return prev
+        return { ...prev, [carreraSubjectId]: { ...current, estado } }
       })
     })
   }, [])
@@ -54,12 +73,13 @@ export function useCarreraData() {
   const setSubjectState = useCallback((id: string, estado: EstadoCarrera, nota?: number) => {
     const clampedNota = nota !== undefined ? Math.min(10, Math.max(1, nota)) : undefined
     setStates(prev => {
-      const updated: CarreraSubjectState = { estado, nota: estado === 'aprobada' ? clampedNota : undefined }
-      const next = { ...prev, [id]: updated }
-      persist(next)
-      return next
+      const current = prev[id]
+      if (current?.estado === estado && current?.nota === clampedNota) return prev
+      return {
+        ...prev,
+        [id]: { estado, nota: estado === 'aprobada' ? clampedNota : undefined },
+      }
     })
-    // Sync to cuatrimestre tracker
     if (estado === 'aprobada' || estado === 'cursando') {
       syncBus.emit({ type: 'carrera-to-materia', carreraSubjectId: id, estado })
     } else {
@@ -90,7 +110,7 @@ export function useCarreraData() {
       .filter(s => s.estado === 'aprobada' && s.nota !== undefined)
       .map(s => s.nota!)
     const promedio = notasValues.length
-      ? parseFloat((notasValues.reduce((sum, n) => sum + n, 0) / notasValues.length).toFixed(2))
+      ? parseFloat((notasValues.reduce((a, b) => a + b, 0) / notasValues.length).toFixed(2))
       : null
     return {
       total: CARRERA_SUBJECTS.length,

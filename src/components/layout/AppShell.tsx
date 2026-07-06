@@ -1,20 +1,28 @@
 import { type ReactNode } from 'react'
 import { NavBar, type ViewType } from './NavBar'
 import { CuatrimestreTabs } from './CuatrimestreTabs'
+import type { User } from 'firebase/auth'
 
 interface AppShellProps {
   activeView: ViewType
   onNavigate: (v: ViewType) => void
   onSettings: () => void
+  onLogout: () => void
+  user: User
   children: ReactNode
 }
 
-export function AppShell({ activeView, onNavigate, onSettings, children }: AppShellProps) {
+export function AppShell({ activeView, onNavigate, onSettings, onLogout, user, children }: AppShellProps) {
   const showTabs = activeView !== 'carrera'
   return (
     <div className="app-bg min-h-svh flex flex-col md:flex-row">
-      <NavBar active={activeView} onNavigate={onNavigate} onSettings={onSettings} />
-
+      <NavBar
+        active={activeView}
+        onNavigate={onNavigate}
+        onSettings={onSettings}
+        onLogout={onLogout}
+        user={user}
+      />
       <main className="flex-1 flex flex-col min-w-0 pb-20 md:pb-6">
         {showTabs && <CuatrimestreTabs />}
         <div className={`flex-1 px-3 md:px-6 ${showTabs ? 'pt-4' : 'pt-5'}`}>

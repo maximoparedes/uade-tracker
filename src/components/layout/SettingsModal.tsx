@@ -1,26 +1,32 @@
 import { useRef, useState } from 'react'
 import { Download, Upload, Share2, Check } from 'lucide-react'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { Modal } from '../ui/Modal'
 import { useAppContext } from '../../context/AppContext'
 import { useCarreraData } from '../../hooks/useCarreraData'
-
-const CUATRI_KEY = 'uade-tracker-v1'
-const CARRERA_KEY = 'uade-carrera-v1'
+import { useAuthContext } from '../../context/AuthContext'
+import { db } from '../../firebase'
 
 interface Props { isOpen: boolean; onClose: () => void }
 
 export function SettingsModal({ isOpen, onClose }: Props) {
+  const { user } = useAuthContext()
   const { activeCuatrimestre, activeMaterias, getMateriaState } = useAppContext()
-  const { stats } = useCarreraData()
+  const { stats } = useCarreraData(user!.uid)
   const fileRef = useRef<HTMLInputElement>(null)
   const [copied, setCopied] = useState(false)
   const [imported, setImported] = useState(false)
   const [importError, setImportError] = useState('')
 
-  function exportData() {
+  async function exportData() {
+    const uid = user!.uid
+    const [appSnap, carreraSnap] = await Promise.all([
+      getDoc(doc(db, 'users', uid, 'storage', 'appData')),
+      getDoc(doc(db, 'users', uid, 'storage', 'carreraData')),
+    ])
     const backup = {
-      cuatrimestre: localStorage.getItem(CUATRI_KEY),
-      carrera: localStorage.getItem(CARRERA_KEY),
+      appData: appSnap.exists() ? appSnap.data() : null,
+      carreraData: carreraSnap.exists() ? carreraSnap.data() : null,
       exportedAt: new Date().toISOString(),
       version: 1,
     }
@@ -38,12 +44,15 @@ export function SettingsModal({ isOpen, onClose }: Props) {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = ev => {
+    reader.onload = async ev => {
       try {
         const backup = JSON.parse(ev.target?.result as string)
-        if (!backup.cuatrimestre && !backup.carrera) throw new Error('Archivo inválido')
-        if (backup.cuatrimestre) localStorage.setItem(CUATRI_KEY, backup.cuatrimestre)
-        if (backup.carrera) localStorage.setItem(CARRERA_KEY, backup.carrera)
+        if (!backup.appData && !backup.carreraData) throw new Error('Archivo inválido')
+        const uid = user!.uid
+        const writes: Promise<void>[] = []
+        if (backup.appData) writes.push(setDoc(doc(db, 'users', uid, 'storage', 'appData'), backup.appData))
+        if (backup.carreraData) writes.push(setDoc(doc(db, 'users', uid, 'storage', 'carreraData'), backup.carreraData))
+        await Promise.all(writes)
         setImported(true)
         setTimeout(() => window.location.reload(), 1000)
       } catch {
@@ -59,12 +68,12 @@ export function SettingsModal({ isOpen, onClose }: Props) {
     const pct = stats.total ? Math.round((stats.aprobadas / stats.total) * 100) : 0
     const bar = '▓'.repeat(Math.round(pct / 10)) + '░'.repeat(10 - Math.round(pct / 10))
     const text = [
-      `📚 UADE Tracker`,
+      '📚 UADE Tracker',
       `${activeCuatrimestre?.nombre ?? 'Cursada'} — Ingeniería en Informática`,
-      ``,
+      '',
       `Carrera: ${bar} ${pct}% (${stats.aprobadas}/${stats.total})`,
       stats.promedio ? `Promedio: ${stats.promedio}` : '',
-      ``,
+      '',
       `Cursando: ${cursando.map(m => m.nombre.split(' ').slice(0, 2).join(' ')).join(', ')}`,
     ].filter(Boolean).join('\n')
 
@@ -76,13 +85,12 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
       }
-    } catch { /* user cancelled share */ }
+    } catch { /* user cancelled */ }
   }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Opciones" size="sm">
       <div className="space-y-3">
-        {/* Share */}
         <button
           onClick={shareProgress}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/8 transition-colors text-left"
@@ -94,7 +102,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           </div>
         </button>
 
-        {/* Export */}
         <button
           onClick={exportData}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/8 transition-colors text-left"
@@ -106,7 +113,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           </div>
         </button>
 
-        {/* Import */}
         <button
           onClick={() => fileRef.current?.click()}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/8 transition-colors text-left"
@@ -123,12 +129,10 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         </button>
         <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={importData} />
 
-        {importError && (
-          <p className="text-xs text-red-400 font-display px-1">{importError}</p>
-        )}
+        {importError && <p className="text-xs text-red-400 font-display px-1">{importError}</p>}
 
         <p className="text-[10px] text-slate-600 font-display px-1 pb-1">
-          Los datos se guardan en este navegador. Exportá regularmente para no perderlos.
+          Tus datos están guardados en la nube con tu cuenta.
         </p>
       </div>
     </Modal>
