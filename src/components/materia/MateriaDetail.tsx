@@ -27,7 +27,7 @@ export function MateriaDetail({ materiaId }: Props) {
   const evaluaciones = activeEvaluaciones
     .filter(e => e.materiaId === materiaId)
     .sort((a, b) => {
-      const order = ['parcial_1', 'parcial_2', 'recuperatorio_1', 'recuperatorio_2', 'final', 'trabajo_final']
+      const order = ['parcial_1', 'parcial_2', 'recuperatorio', 'final_adelantado', 'final', 'trabajo_final']
       return order.indexOf(a.tipo) - order.indexOf(b.tipo)
     })
 
@@ -35,13 +35,17 @@ export function MateriaDetail({ materiaId }: Props) {
   const c = COLORS[materia.color]
 
   function addRecuperatorio() {
-    const hasR1 = evaluaciones.some(e => e.tipo === 'recuperatorio_1')
-    addEvaluacion({
-      materiaId,
-      tipo: hasR1 ? 'recuperatorio_2' : 'recuperatorio_1',
-      nombre: hasR1 ? 'Recuperatorio 2' : 'Recuperatorio 1',
-      estado: 'pendiente_fecha',
-    })
+    const hasRec = evaluaciones.some(e => e.tipo === 'recuperatorio')
+    if (!hasRec) {
+      addEvaluacion({ materiaId, tipo: 'recuperatorio', nombre: 'Recuperatorio', estado: 'pendiente_fecha' })
+    }
+  }
+
+  function addFinalAdelantado() {
+    const hasFa = evaluaciones.some(e => e.tipo === 'final_adelantado')
+    if (!hasFa) {
+      addEvaluacion({ materiaId, tipo: 'final_adelantado', nombre: 'Final Adelantado', estado: 'pendiente_fecha' })
+    }
   }
 
   return (
@@ -87,6 +91,9 @@ export function MateriaDetail({ materiaId }: Props) {
           <div className="flex gap-1">
             <Button size="sm" variant="ghost" onClick={addRecuperatorio}>
               <Plus size={12} /> Recuperatorio
+            </Button>
+            <Button size="sm" variant="ghost" onClick={addFinalAdelantado}>
+              <Plus size={12} /> F. Adelantado
             </Button>
           </div>
         </div>

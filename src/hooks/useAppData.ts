@@ -88,6 +88,8 @@ export function useAppData(uid: string): AppDataExtended {
         }
       } catch (err) {
         console.error('Error loading data:', err)
+        // On any Firestore error, fall back to onboarding so user isn't stuck
+        if (!cancelled) setNeedsOnboarding(true)
       } finally {
         if (!cancelled) setDataLoading(false)
       }
@@ -274,17 +276,14 @@ export function useAppData(uid: string): AppDataExtended {
     update(d => {
       const ev = d.evaluaciones.find(e => e.id === id)
       let evaluaciones = d.evaluaciones.map(e => e.id === id ? { ...e, ...updates } : e)
+      // Auto-create ONE recuperatorio when any parcial is failed/absent
       if (ev && (updates.estado === 'desaprobado' || updates.estado === 'ausente')) {
-        const tipoRec =
-          ev.tipo === 'parcial_1' ? 'recuperatorio_1' as const :
-          ev.tipo === 'parcial_2' ? 'recuperatorio_2' as const : null
-        if (tipoRec) {
-          const hasRec = evaluaciones.some(e => e.materiaId === ev.materiaId && e.tipo === tipoRec)
+        if (ev.tipo === 'parcial_1' || ev.tipo === 'parcial_2') {
+          const hasRec = evaluaciones.some(e => e.materiaId === ev.materiaId && e.tipo === 'recuperatorio')
           if (!hasRec) {
             evaluaciones = [...evaluaciones, {
-              id: `e-${nanoid()}`, materiaId: ev.materiaId, tipo: tipoRec,
-              nombre: tipoRec === 'recuperatorio_1' ? 'Recuperatorio 1' : 'Recuperatorio 2',
-              estado: 'pendiente_fecha' as const,
+              id: `e-${nanoid()}`, materiaId: ev.materiaId, tipo: 'recuperatorio' as const,
+              nombre: 'Recuperatorio', estado: 'pendiente_fecha' as const,
             }]
           }
         }

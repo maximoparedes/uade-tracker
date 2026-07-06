@@ -17,8 +17,8 @@ const ESTADO_LABELS: Record<EstadoEvaluacion, string> = {
 const TIPO_LABELS: Record<TipoEvaluacion, string> = {
   parcial_1: 'Parcial 1',
   parcial_2: 'Parcial 2',
-  recuperatorio_1: 'Recuperatorio 1',
-  recuperatorio_2: 'Recuperatorio 2',
+  recuperatorio: 'Recuperatorio',
+  final_adelantado: 'Final Adelantado',
   final: 'Examen Final',
   trabajo_final: 'Trabajo Final',
 }

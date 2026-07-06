@@ -13,7 +13,7 @@ const MONTH_NAMES = [
 
 const TIPO_LABEL: Record<string, string> = {
   parcial_1: 'Parcial 1', parcial_2: 'Parcial 2',
-  recuperatorio_1: 'Recup. 1', recuperatorio_2: 'Recup. 2',
+  recuperatorio: 'Recuperatorio', final_adelantado: 'F. Adelantado',
   final: 'Final', trabajo_final: 'T. Final',
 }
 

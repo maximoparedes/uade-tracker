@@ -2,7 +2,7 @@ export type DiaSemana = 'lun' | 'mar' | 'mie' | 'jue' | 'vie' | 'sab'
 export type TipoMateria = 'virtual' | 'presencial' | 'intensiva'
 export type RegimenMateria = 'examen_final' | 'trabajo_final' | 'promocion'
 export type EstadoMateria = 'cursando' | 'rindiendo' | 'promocionada' | 'aprobada' | 'desaprobada'
-export type TipoEvaluacion = 'parcial_1' | 'parcial_2' | 'recuperatorio_1' | 'recuperatorio_2' | 'final' | 'trabajo_final'
+export type TipoEvaluacion = 'parcial_1' | 'parcial_2' | 'recuperatorio' | 'final_adelantado' | 'final' | 'trabajo_final'
 export type EstadoEvaluacion = 'pendiente_fecha' | 'programado' | 'aprobado' | 'desaprobado' | 'ausente' | 'promocionado'
 export type ColorKey = 'cyan' | 'sky' | 'blue' | 'violet' | 'purple' | 'green' | 'amber' | 'rose'
 
