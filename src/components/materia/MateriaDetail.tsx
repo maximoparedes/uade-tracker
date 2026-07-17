@@ -102,6 +102,7 @@ export function MateriaDetail({ materiaId }: Props) {
             <EvaluacionRow
               key={ev.id}
               evaluacion={ev}
+              materiaName={materia.nombre}
               isConflict={ev.fecha ? conflictDates.has(ev.fecha) : false}
             />
           ))}
