@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { initializeFirestore, persistentLocalCache } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyCIZ2pmnqasBEl-FDdc8VoLASqJvmHkdb4',
@@ -13,5 +13,8 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
-export const db = getFirestore(app)
+// persistentLocalCache writes to IndexedDB immediately — data survives page close
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache(),
+})
 export const googleProvider = new GoogleAuthProvider()
