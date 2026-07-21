@@ -47,9 +47,12 @@ function emptyStorage(cuatrimestre: Cuatrimestre): AppStorage {
   }
 }
 
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+
 export type AppDataExtended = AppContextType & {
   dataLoading: boolean
   needsOnboarding: boolean
+  saveStatus: SaveStatus
   initializeUser: (nombre: string, cuatrimestre: Cuatrimestre) => Promise<void>
 }
 
@@ -57,6 +60,7 @@ export function useAppData(uid: string): AppDataExtended {
   const [data, setData] = useState<AppStorage | null>(null)
   const [dataLoading, setDataLoading] = useState(true)
   const [needsOnboarding, setNeedsOnboarding] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const isInitialLoad = useRef(true)
   const appDocRef = useRef(doc(db, 'users', uid, 'storage', 'appData'))
 
@@ -99,12 +103,17 @@ export function useAppData(uid: string): AppDataExtended {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid])
 
-  // Save to Firestore immediately on every data change (no debounce)
-  // persistentLocalCache writes to IndexedDB first, so page close doesn't lose data
+  // Save to Firestore immediately on every data change
   useEffect(() => {
     if (!data || dataLoading) return
     if (isInitialLoad.current) { isInitialLoad.current = false; return }
-    setDoc(appDocRef.current, data).catch(console.error)
+    setSaveStatus('saving')
+    setDoc(appDocRef.current, data)
+      .then(() => setSaveStatus('saved'))
+      .catch(err => {
+        console.error('Firestore save error:', err)
+        setSaveStatus('error')
+      })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
@@ -355,6 +364,7 @@ export function useAppData(uid: string): AppDataExtended {
     updateMateriaState,
     dataLoading,
     needsOnboarding,
+    saveStatus,
     initializeUser,
   }
 }
