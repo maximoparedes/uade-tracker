@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import type { Materia, TipoMateria, RegimenMateria, DiaSemana, ColorKey, Horario } from '../../types'
 import { useAppContext } from '../../context/AppContext'
 import { FormField, Input, Select } from '../ui/Input'
 import { Button } from '../ui/Button'
 import { COLOR_PALETTE, COLORS } from '../../utils/colors'
+import { CARRERA_SUBJECTS } from '../../data/carreraData'
 
 const DIAS: DiaSemana[] = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab']
 const DIA_LABELS: Record<DiaSemana, string> = {
@@ -32,10 +33,30 @@ export function MateriaForm({ cuatrimestreId, materia, onDone }: Props) {
     periodoHasta: materia?.periodoIntensivo?.hasta ?? '',
     periodoInicio: materia?.periodoIntensivo?.inicio ?? '07:00',
     periodoFin: materia?.periodoIntensivo?.fin ?? '17:30',
+    carreraSubjectId: materia?.carreraSubjectId ?? '',
   })
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  const suggestions = useMemo(() => {
+    if (!form.nombre || form.nombre.length < 2) return []
+    const q = form.nombre.toLowerCase()
+    return CARRERA_SUBJECTS.filter(s =>
+      s.nombre.toLowerCase().includes(q)
+    ).slice(0, 7)
+  }, [form.nombre])
 
   function set(field: string, value: unknown) {
     setForm(f => ({ ...f, [field]: value }))
+  }
+
+  function selectSuggestion(s: (typeof CARRERA_SUBJECTS)[0]) {
+    setForm(f => ({
+      ...f,
+      nombre: s.nombre,
+      carreraSubjectId: s.id,
+      curso: f.curso || s.codigo,
+    }))
+    setShowSuggestions(false)
   }
 
   function addHorario() {
@@ -67,6 +88,7 @@ export function MateriaForm({ cuatrimestreId, materia, onDone }: Props) {
         inicio: form.periodoInicio, fin: form.periodoFin,
       } : undefined,
       orden: materia?.orden ?? (activeMaterias.length + 1),
+      carreraSubjectId: form.carreraSubjectId || undefined,
     }
 
     if (materia) {
@@ -86,7 +108,35 @@ export function MateriaForm({ cuatrimestreId, materia, onDone }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <FormField label="Nombre de la materia">
-        <Input value={form.nombre} onChange={e => set('nombre', e.target.value)} required placeholder="Ej: Análisis Matemático I" />
+        <div className="relative">
+          <Input
+            value={form.nombre}
+            onChange={e => {
+              set('nombre', e.target.value)
+              set('carreraSubjectId', '')
+              setShowSuggestions(true)
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+            required
+            placeholder="Ej: Análisis Matemático I"
+          />
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-navy-800 border border-navy-600 rounded-xl shadow-2xl overflow-hidden">
+              {suggestions.map(s => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onMouseDown={() => selectSuggestion(s)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-navy-700 transition-colors text-left border-b border-navy-700 last:border-0"
+                >
+                  <span className="font-display text-sm text-slate-200 truncate">{s.nombre}</span>
+                  <span className="font-mono text-[10px] text-slate-500 ml-3 shrink-0">{s.año}° año</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </FormField>
 
       <div className="grid grid-cols-2 gap-3">
