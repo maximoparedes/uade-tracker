@@ -109,10 +109,10 @@ export function useAppData(uid: string): AppDataExtended {
     if (isInitialLoad.current) { isInitialLoad.current = false; return }
     setSaveStatus('saving')
     setDoc(appDocRef.current, data)
-      .then(() => setSaveStatus('saved'))
+      .then(() => { setSaveStatus('saved'); console.log('[Firestore] saved ok') })
       .catch(err => {
-        console.error('Firestore save error:', err)
         setSaveStatus('error')
+        console.error('[Firestore] save FAILED:', err?.code, err?.message)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])

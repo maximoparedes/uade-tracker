@@ -51,7 +51,6 @@ function AuthenticatedApp({ user }: { user: User }) {
         onSettings={() => setShowSettings(true)}
         onLogout={logout}
         user={user}
-        saveStatus={appData.saveStatus}
       >
         {activeView === 'dashboard' && <Dashboard />}
         {activeView === 'calendario' && <Calendario />}
