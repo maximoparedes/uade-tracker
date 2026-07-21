@@ -57,9 +57,7 @@ export function useAppData(uid: string): AppDataExtended {
   const [data, setData] = useState<AppStorage | null>(null)
   const [dataLoading, setDataLoading] = useState(true)
   const [needsOnboarding, setNeedsOnboarding] = useState(false)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const isInitialLoad = useRef(true)
-  const pendingDataRef = useRef<AppStorage | null>(null)
   const appDocRef = useRef(doc(db, 'users', uid, 'storage', 'appData'))
 
   const appRef = appDocRef.current
@@ -101,30 +99,14 @@ export function useAppData(uid: string): AppDataExtended {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid])
 
-  // Save to Firestore on data change (debounced 500ms)
+  // Save to Firestore immediately on every data change (no debounce)
+  // persistentLocalCache writes to IndexedDB first, so page close doesn't lose data
   useEffect(() => {
     if (!data || dataLoading) return
     if (isInitialLoad.current) { isInitialLoad.current = false; return }
-    pendingDataRef.current = data
-    clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => {
-      setDoc(appDocRef.current, data).catch(console.error)
-      pendingDataRef.current = null
-    }, 500)
-    return () => clearTimeout(saveTimerRef.current)
+    setDoc(appDocRef.current, data).catch(console.error)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
-
-  // Flush any pending save when the page closes
-  useEffect(() => {
-    function flush() {
-      if (pendingDataRef.current) {
-        setDoc(appDocRef.current, pendingDataRef.current).catch(console.error)
-      }
-    }
-    window.addEventListener('beforeunload', flush)
-    return () => window.removeEventListener('beforeunload', flush)
-  }, [])
 
   // Listen for carrera → cuatrimestre sync events
   useEffect(() => {
