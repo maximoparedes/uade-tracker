@@ -12,6 +12,19 @@ function nanoid(): string {
   return Math.random().toString(36).slice(2, 11)
 }
 
+// Firestore rejects undefined values — strip them recursively before saving
+function stripUndefined(obj: unknown): unknown {
+  if (Array.isArray(obj)) return obj.map(stripUndefined)
+  if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj as Record<string, unknown>)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, stripUndefined(v)])
+    )
+  }
+  return obj
+}
+
 const NOMBRE_TO_CARRERA_ID: Record<string, string> = Object.fromEntries(
   CARRERA_SUBJECTS.map(s => [s.nombre, s.id])
 )
@@ -99,13 +112,17 @@ export function useAppData(uid: string): AppDataExtended {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid])
 
-  // Save to Firestore immediately on every data change (no state update to avoid re-render cascade)
+  // Save to Firestore immediately on every data change
   useEffect(() => {
     if (!data || dataLoading) return
     if (isInitialLoad.current) { isInitialLoad.current = false; return }
-    setDoc(appDocRef.current, data)
-      .then(() => console.log('[Firestore] saved ok'))
-      .catch(err => console.error('[Firestore] save FAILED:', err?.code, err?.message))
+    try {
+      setDoc(appDocRef.current, stripUndefined(data) as AppStorage)
+        .then(() => console.log('[Firestore] saved ok'))
+        .catch(err => console.error('[Firestore] save FAILED:', err?.code, err?.message))
+    } catch (err: unknown) {
+      console.error('[Firestore] save FAILED (sync):', err)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
