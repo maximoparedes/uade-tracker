@@ -28,7 +28,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
-        className={`relative w-full ${widths[size]} bg-[#16161f] border border-white/8 rounded-t-2xl sm:rounded-2xl shadow-2xl fade-in max-h-[90vh] flex flex-col`}
+        className={`relative z-10 w-full ${widths[size]} bg-[#16161f] border border-white/8 rounded-t-2xl sm:rounded-2xl shadow-2xl fade-in max-h-[90vh] flex flex-col`}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/6">
