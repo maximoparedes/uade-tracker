@@ -47,12 +47,9 @@ function emptyStorage(cuatrimestre: Cuatrimestre): AppStorage {
   }
 }
 
-export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
-
 export type AppDataExtended = AppContextType & {
   dataLoading: boolean
   needsOnboarding: boolean
-  saveStatus: SaveStatus
   initializeUser: (nombre: string, cuatrimestre: Cuatrimestre) => Promise<void>
 }
 
@@ -60,7 +57,6 @@ export function useAppData(uid: string): AppDataExtended {
   const [data, setData] = useState<AppStorage | null>(null)
   const [dataLoading, setDataLoading] = useState(true)
   const [needsOnboarding, setNeedsOnboarding] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const isInitialLoad = useRef(true)
   const appDocRef = useRef(doc(db, 'users', uid, 'storage', 'appData'))
 
@@ -103,17 +99,13 @@ export function useAppData(uid: string): AppDataExtended {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid])
 
-  // Save to Firestore immediately on every data change
+  // Save to Firestore immediately on every data change (no state update to avoid re-render cascade)
   useEffect(() => {
     if (!data || dataLoading) return
     if (isInitialLoad.current) { isInitialLoad.current = false; return }
-    setSaveStatus('saving')
     setDoc(appDocRef.current, data)
-      .then(() => { setSaveStatus('saved'); console.log('[Firestore] saved ok') })
-      .catch(err => {
-        setSaveStatus('error')
-        console.error('[Firestore] save FAILED:', err?.code, err?.message)
-      })
+      .then(() => console.log('[Firestore] saved ok'))
+      .catch(err => console.error('[Firestore] save FAILED:', err?.code, err?.message))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
@@ -364,7 +356,6 @@ export function useAppData(uid: string): AppDataExtended {
     updateMateriaState,
     dataLoading,
     needsOnboarding,
-    saveStatus,
     initializeUser,
   }
 }
